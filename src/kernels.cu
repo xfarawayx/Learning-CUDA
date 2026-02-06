@@ -241,31 +241,6 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
 
   T *d_q = nullptr, *d_k = nullptr, *d_v = nullptr, *d_o = nullptr;
 
-
-#ifndef PLATFORM_ILUVATAR
-  cudaStream_t stream;
-  cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
-
-  cudaMallocAsync((void **)&d_q, sizeof(T) * tgt_size, stream);
-  cudaMallocAsync((void **)&d_k, sizeof(T) * src_size, stream);
-  cudaMallocAsync((void **)&d_v, sizeof(T) * src_size, stream);
-  cudaMallocAsync((void **)&d_o, sizeof(T) * tgt_size, stream);
-
-  cudaMemcpyAsync(d_q, h_q.data(), sizeof(T) * tgt_size, cudaMemcpyHostToDevice, stream);
-  cudaMemcpyAsync(d_k, h_k.data(), sizeof(T) * src_size, cudaMemcpyHostToDevice, stream);
-  cudaMemcpyAsync(d_v, h_v.data(), sizeof(T) * src_size, cudaMemcpyHostToDevice, stream);
-
-  flashAttention_kernel<<<grid, block, smem_size, stream>>>(d_q, d_k, d_v, d_o, target_seq_len, src_seq_len, query_heads, kv_heads,
-                                                            head_dim, is_causal, scale_factor, Br, Bc);
-  
-  cudaMemcpyAsync(h_o.data(), d_o, sizeof(T) * tgt_size, cudaMemcpyDeviceToHost, stream);
-
-  cudaStreamSynchronize(stream);
-  cudaFreeAsync(d_q, stream), cudaFreeAsync(d_k, stream),
-  cudaFreeAsync(d_v, stream), cudaFreeAsync(d_o, stream);
-  cudaStreamDestroy(stream);
-
-#else // ILUVATAR Does not support Async CUDA APIs
   cudaMalloc((void **)&d_q, sizeof(T) * tgt_size);
   cudaMalloc((void **)&d_k, sizeof(T) * src_size);  
   cudaMalloc((void **)&d_v, sizeof(T) * src_size);
@@ -280,7 +255,6 @@ void flashAttention(const std::vector<T>& h_q, const std::vector<T>& h_k,
 
   cudaMemcpy(h_o.data(), d_o, sizeof(T) * tgt_size, cudaMemcpyDeviceToHost);
   cudaFree(d_q), cudaFree(d_k), cudaFree(d_v), cudaFree(d_o);
-#endif
 }
 
 // *********************************************************************
